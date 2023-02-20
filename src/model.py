@@ -1,9 +1,11 @@
 import random
 from src.data import Data
-from numpy import exp
+import numpy as np
 from math import sin, pi
-from matplotlib import pyplot as plt
-  
+from matplotlib import pyplot as plt, image
+
+import cv2
+
    
 class Model(Data):
     def __init__(self, N):
@@ -21,8 +23,8 @@ class Model(Data):
     def _generate_exp(self, b, alpha):
         if (alpha == 0 or b == 0):
             print ("Parameters alpha and b cannot equal 0")
-        x_exp = [b * exp(alpha * element) for element in self.t]
-        x_exp2 = [b * exp(-alpha * element) for element in self.t]
+        x_exp = [b * np.exp(alpha * element) for element in self.t]
+        x_exp2 = [b * np.exp(-alpha * element) for element in self.t]
         return x_exp, x_exp2
         
         
@@ -31,7 +33,7 @@ class Model(Data):
         dot2 = dot1 + int(0.5*self.N)
         
         x_piece1 = [a * element + b for element in self.t if (element <= dot1)]
-        x_piece2 = [b * exp(alpha * element) for element in self.t if (element > dot1 and element <= dot2)]
+        x_piece2 = [b * np.exp(alpha * element) for element in self.t if (element > dot1 and element <= dot2)]
         x_piece3 = [-a * element + b for element in self.t if (element > dot2)]
         x_piecewise = x_piece1 + x_piece2 + x_piece3
         return x_piecewise
@@ -101,7 +103,7 @@ class Model(Data):
             xk.append(random_number)
         
         xk_hat = list()
-        if R > 1:
+        if R > 0:
             xk_hat = self.__recalculate(xk, R)
             if plot_graphs:
                 self.__draw_plot(xk_hat, "Noise")
@@ -150,6 +152,33 @@ class Model(Data):
         return shifted_data
     
     
+    # shift input 2D-data by constant                
+    def shift_2D(self, data, C=30, new_filename='shifted.jpg', write=True, show=True):
+        shifted_data = list()
+
+        # add a constant to each element in rows
+        for row in range(len(data[0])):
+            temp_row = list()
+            for col in range(len(data[0][row])):
+                temp_row.append(data[0][row][col] + C)
+            shifted_data.append(temp_row)
+        # convert to numpy array
+        shifted_data = np.array(shifted_data)
+        print(np.amin(shifted_data), np.amax(shifted_data))
+        
+        # write array to a file to save as an image
+        if write and show:        
+            cv2.imwrite(new_filename, shifted_data)
+            # read the image and show it
+            if show:
+                img = cv2.imread(new_filename, cv2.IMREAD_GRAYSCALE)
+                plt.imshow(img, cmap='gray')
+                plt.title("Shifted")
+                plt.show()
+            
+        return shifted_data
+    
+    
     # generates M outliers
     def impulse_noise(self, data, N, M, R, type='template', plot=False):
         #if not (M >= int(0.005 * N) and M <= int(0.01 * N)):
@@ -189,11 +218,11 @@ class Model(Data):
                 elif (type == 'data'):
                     impulse_plot.append(data[i])
                 
-        if plot == True:
+        if plot:
             plt.clf()
-            plt.plot(impulse_plot)
+            plt.plot([n * 0.00071 for n in range(N)], impulse_plot)
             plt.title("Impulse Noise")
-            plt.xlabel("t")
+            plt.xlabel("t [s]")
             plt.ylabel("x(t)")
             plt.gcf().canvas.set_window_title("Impulse Noise")
             plt.show()
@@ -203,21 +232,22 @@ class Model(Data):
     
     # harmonic process
     def harmonic(self, N, A0, f0, delta_t, update=True, plot_graphs=True):
-        xt = [A0 * sin(2*pi*f0*delta_t*k) for k in range(N)]
-        if plot_graphs == True:
-            plt.plot(xt)
+        const_2pi_delta_t = 2 * pi * delta_t
+        xt = [A0 * sin(const_2pi_delta_t*f0*k) for k in range(N)]
+        if plot_graphs:
+            plt.plot([n * delta_t for n in range(N)], xt)
             plt.title(f"Harmonic Process (f0={f0} [Hz])")
-            plt.xlabel("t")
+            plt.xlabel("t [s]")
             plt.ylabel("x(t)")
             plt.gcf().canvas.set_window_title("Harmonic Process")
             plt.show()
         
-        if update == True:
+        if update:
             i = 1
             start = f0 + 50
-            if plot_graphs == True:
+            if plot_graphs:
                 for step in range(start, 533+1, 50):
-                    plt.plot([A0 * sin(2*pi*step*delta_t*k) for k in range(N)])
+                    plt.plot([A0 * sin(const_2pi_delta_t*step*k) for k in range(N)])
                     plt.title(f"Harmonic Process (f0={step} [Hz])")
                     plt.xlabel("t")
                     plt.ylabel("x(t)")
@@ -230,6 +260,7 @@ class Model(Data):
     
     # polyharmonic process
     def polyHarm(self, N, Ai, fi, delta_t, plot_graph=True):
+        const_2pi = 2 *pi
         xt = list()
         if delta_t > 1 / (2 * fi[2]):
             print("Parameter delta_t must be <= 1/2f2.")
@@ -237,7 +268,7 @@ class Model(Data):
         for k in range(N): 
             xk = 0
             for i in range(3):
-                xk += Ai[i] * sin(2*pi*fi[i]*delta_t*k)
+                xk += Ai[i] * sin(const_2pi*fi[i]*delta_t*k)
             xt.append(xk)
         
         if plot_graph == True:
@@ -283,8 +314,8 @@ class Model(Data):
             x_axis = self.t
             
         if plot_graphs == True:
-            fig, axis = plt.subplots(1, 3, figsize=(10, 4), num="Original Functions & Additive Model")
-            fig.suptitle("Original Functions & Additive Model")
+            fig, axis = plt.subplots(1, 3, figsize=(10, 4), num="Original Functions & Multiplicative Model")
+            fig.suptitle("Original Functions & Multiplicative Model")
             axis[0].plot(x_axis, data1)
             axis[1].plot(x_axis, data2)
             axis[2].plot(x_axis, data)
@@ -295,3 +326,30 @@ class Model(Data):
             plt.show()  
         
         return data
+    
+    
+    # additive model for elementwise multiplication of 2D-array
+    def multModel_2D(self, data, C=1.3, new_filename='multiplied.jpg', write=True, show=True):
+        multiplied_by_const = list()
+
+        # add a constant to each element in rows
+        for row in range(len(data[0])):
+            temp_row = list()
+            for col in range(len(data[0][row])):
+                temp_row.append(data[0][row][col] * C)
+            multiplied_by_const.append(temp_row)
+        # convert to numpy array
+        multiplied_by_const = np.array(multiplied_by_const)
+        print(np.amin(multiplied_by_const), np.amax(multiplied_by_const))
+        
+        # write array to a file to save as an image
+        if write:     
+            cv2.imwrite(new_filename, multiplied_by_const)
+            # read the image and show it
+            if show:
+                img = cv2.imread(new_filename, cv2.IMREAD_GRAYSCALE)
+                plt.imshow(img, cmap='gray')
+                plt.title("Multiplied")
+                plt.show()
+                img = cv2.imread(new_filename, cv2.IMREAD_GRAYSCALE)
+        return multiplied_by_const
