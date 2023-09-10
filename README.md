@@ -5,9 +5,9 @@ The project is a Python application that allows to model, process, and analyze b
 the stress in speech.
 
 # Project Structure
-.
+ .  
 ├── src/  
-        ├── __init__.py  
+        ├── \_\_init\_\_.py  
         ├── analysis.py                      # Contains statistical functions  
         ├── data.py                          # Input data  
         ├── model.py                         # Model trends, noise, shifts, outliers, harmonic processes, additive / multiplicative models  
