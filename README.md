@@ -6,8 +6,8 @@ the stress in speech.
 
 # Project Structure
 .
-├── src/
-        ├── __init__.py
+├── src/  
+        ├── __init__.py  
         ├── analysis.py                      # Contains statistical functions  
         ├── data.py                          # Input data  
         ├── model.py                         # Model trends, noise, shifts, outliers, harmonic processes, additive / multiplicative models  
