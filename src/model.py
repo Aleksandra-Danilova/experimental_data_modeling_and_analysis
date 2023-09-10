@@ -1,10 +1,9 @@
+import cv2
 import random
 from src.data import Data
 import numpy as np
 from math import sin, pi
 from matplotlib import pyplot as plt, image
-
-import cv2
 
    
 class Model(Data):
@@ -351,5 +350,42 @@ class Model(Data):
                 plt.imshow(img, cmap='gray')
                 plt.title("Multiplied")
                 plt.show()
-                img = cv2.imread(new_filename, cv2.IMREAD_GRAYSCALE)
         return multiplied_by_const
+    
+    
+    
+    # Method to create noise of different kinds on image
+    def noise_image(self, image, noise_type='salt_pepper', M=2, R_imp=255, R_rnd=100):
+        N = image.shape[1]
+        additive_model = list()
+        
+        if noise_type == 'salt_pepper':
+            for row in range(0,  image.shape[0]):
+                noise = self.impulse_noise(image[row], N, M=M, R=R_imp, plot=False)
+                add = self.addModel(image[row], noise, N, plot=False)
+                additive_model.append(add)        
+            plt.imshow(additive_model, cmap='gray')
+            plt.title("Salt and Pepper")
+            plt.show()  
+          
+        elif noise_type == 'random':
+            for row in range(0,  image.shape[0]):
+                noise = self.noise(N, R=R_rnd, plot_graphs=False)
+                add = self.addModel(image[row], noise, N, plot=False)
+                additive_model.append(add)        
+            plt.imshow(additive_model, cmap='gray')
+            plt.title("Random")
+            plt.show()  
+        
+        elif noise_type == 'both':
+            for row in range(0, image.shape[0]):
+                imp_noise = self.impulse_noise(image[row], N, M=M, R=R_imp, plot=False)
+                rnd_noise = self.noise(N, R=R_rnd, plot_graphs=False)
+                noise = self.addModel(imp_noise, rnd_noise, N, plot=False)
+                add = self.addModel(image[row], noise, N, plot=False)
+                additive_model.append(add)        
+            plt.imshow(additive_model, cmap='gray')
+            plt.title("Both")
+            plt.show()  
+        
+        return additive_model
