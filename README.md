@@ -8,10 +8,10 @@ the stress in speech.
 .
 ├── src/
         ├── __init__.py
-        ├── analysis.py                      # Contains statistical functions
-        ├── data.py                          # Input data
-        ├── model.py                         # Model trends, noise, shifts, outliers, harmonic processes, additive / multiplicative models
-        ├── processing.py                    # Process inputs by removing trends / shifts / spikes / noise, apply gradational transformations, enlarge_data, etc.
-├── main.py                    # Space to work with data an run code
-├── examples/                               # Folder contains images showing inputs and outputs
+        ├── analysis.py                      # Contains statistical functions  
+        ├── data.py                          # Input data  
+        ├── model.py                         # Model trends, noise, shifts, outliers, harmonic processes, additive / multiplicative models  
+        ├── processing.py                    # Process inputs by removing trends / shifts / spikes / noise, apply gradational transformations, enlarge_data, etc.  
+├── main.py                    # Space to work with data an run code  
+├── examples/                               # Folder contains images showing inputs and outputs  
 └── README.md
