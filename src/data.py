@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.io import wavfile
 import cv2
+import math
 import matplotlib.pyplot as plt
-
 
 class Data:
     # N - max t-argument's value for x(t)-function
@@ -16,7 +16,7 @@ class Data:
         
     
     # Read data from file
-    def read_file(self, path, dt=0.002, ext='dat', start=0, end=-1, show=True):
+    def read_file(self, path, dt=0.002, ext='dat', start=0, end=-1, shape=(1024, 1024), show=True):
         if ext == 'dat':
             with open(path, 'rb') as file:
                 # convert bytes to floats
@@ -38,19 +38,55 @@ class Data:
         
         elif ext == 'jpg':
             img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+            #cv2.imshow("Original", img)
+            
             if show:
-                plt.imshow(img, cmap=plt.get_cmap('gray'))# cmap='gray')
+                plt.imshow(img, cmap=plt.get_cmap('gray'))#, vmin=0, vmax=255)
                 plt.title("Original")
                 plt.show()
             return img, img.size
-          
+        
+        elif ext == 'xcr':
+            with open(path, "rb") as f:
+                # header of 2048 bytes is a text, ignore tail of 8192 bytes
+                bytes = bytearray(f.read())#[2048:-8192]
+                
+                # After the header, two-byte image data comes
+                data_to_hex = bytes.hex()
+                
+                data_to_hex_list = list()
+                for i in range(0, len(data_to_hex), 4):
+                    tetrad = data_to_hex[i] + data_to_hex[i + 1] + \
+                             data_to_hex[i + 2] + data_to_hex[i + 3]
+                    data_to_hex_list.append(tetrad)
+                
+                data_int = list()
+                for i in range(len(data_to_hex_list)):
+                    data_int.append(int(data_to_hex_list[i], 16))
+                             
+                reshaped = np.reshape(data_int, shape)# np.rot90(np.reshape(data_int, shape))
+                recalculate = self.recalculate_to_grayscale(reshaped, write=False, show=True)
+            return recalculate
+
+        elif ext == 'bin':
+            with open(path, "rb") as f:
+                bytes = np.fromfile(path, dtype='uint16')
+            reshaped = np.reshape(bytes, shape)
+            recalculate = self.recalculate_to_grayscale(reshaped, write=False, show=True)
+            return recalculate
+                
         
     def write_to_wav(self, output, rate, input):
         wavfile.write(output, rate, input.astype(np.int16))
         
         
+    def write_to_xcr(self, input, path):
+        with open(path, "wb") as f:
+            f.write(input)
+        
+        
     # Bringing the data of any image to a gray scale, i.e. from an arbitrary range of values 
-    # to a range of S = [0, 255] according to the formula xk_hat = (xk - x_min) / (x_max - x_min) * S,
+    # ​​to a range of S = [0, 255] according to the formula xk_hat = (xk - x_min) / (x_max - x_min) * S,
     # where xk - values of the original image, xk_hat - values of the reduced image, S = 255.
     def recalculate_to_grayscale(self, image, 
                                  new_filename='recalculated.jpg', 
@@ -80,3 +116,48 @@ class Data:
                 plt.title("Recalculated to Grayscale")
                 plt.show()
         return recalculated_list
+    
+    
+    
+    def __nearest_neighbor_interpolation(self, image, coef): 
+        new_height = int(coef * image.shape[0])
+        new_width = int(coef * image.shape[1])       
+        output = np.zeros((new_height, new_width))
+
+        for i in range(new_height - 1):
+            for j in range(new_width - 1):
+                output[i + 1][j + 1] = image[1 + int(i / coef)][1 + int(j / coef)]
+
+        return output
+        
+    
+    def __bilinear_interpolation(self, image, coef):
+        height, width = image.shape
+        
+        new_height = int(coef * height)
+        new_width = int(coef * width)       
+                
+        image = np.pad(image, ((0, 1), (0, 1)), 'constant')
+        output = np.zeros((new_height, new_width), dtype=np.uint8)
+        for i in range(new_height):
+            for j in range(new_width):
+                scrx = (i + 1) * (height / new_height) - 1
+                scry = (j + 1) * (width / new_width) - 1
+                x = math.floor(scrx)
+                y = math.floor(scry)
+                u = scrx - x
+                v = scry - y
+                output[i, j] = (1 - u) * (1 - v) * image[x, y] + \
+                    u * (1 - v) * image[x + 1, y] + \
+                    (1 - u) * v * image[x, y + 1] + \
+                    u * v * image[x + 1, y + 1]
+        return output
+
+    
+    
+    def resize_image(self, image, scale_factor, method='nearest_neighbor'):
+        if method == 'nearest_neighbor':
+            resized = self.__nearest_neighbor_interpolation(image, scale_factor)
+        elif method == 'bilinear':
+            resized = self.__bilinear_interpolation(image, scale_factor)
+        return resized
