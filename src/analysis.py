@@ -1,7 +1,9 @@
+from re import I
 from src.data import Data
 from src.model import Model
 from matplotlib import pyplot as plt
-from math import sqrt, pi, sin, cos
+from math import sqrt, pi, sin, cos, log
+import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -116,8 +118,8 @@ class Analysis(Model, Data):
         
         for section in range(0, N, step):
             trend_section = data[section:section+step]
-            means.append(self.__get_mean(trend_section))
-            std.append(self.__get_standard_deviation(trend_section))
+            means.append(self._get_mean(trend_section))
+            std.append(self._get_standard_deviation(trend_section))
         
         mean_values.append(means)
         std_values.append(std)
@@ -141,7 +143,7 @@ class Analysis(Model, Data):
         std_relative_error_list = list()
 
         # unshifted data -> absolute errors
-        if self.__get_mean(mean_values[0]) < 0.1:
+        if self._get_mean(mean_values[0]) < 0.1:
             mean_relative_error_list = self.__calculate_absolute_errors(mean_values[0])
             std_relative_error_list = self.__calculate_absolute_errors(std_values[0])
         else:
@@ -153,7 +155,7 @@ class Analysis(Model, Data):
         stationary_std = self.__compare_error_pairs(std_relative_error_list)
         stationary = stationary_mean * stationary_std  
         
-        if stationary == True:
+        if stationary:
             return "Stationary"
         else:
             return "Unstationary"
@@ -218,7 +220,6 @@ class Analysis(Model, Data):
         plt.title("Autocorrelation")
         plt.xlabel("t")
         plt.ylabel("x(t)")
-        plt.gcf().canvas.set_window_title("Autocorrelation")
         plt.show()
         
         return RL
@@ -240,7 +241,6 @@ class Analysis(Model, Data):
         plt.title("Cross-correlation")
         plt.xlabel("t")
         plt.ylabel("x(t)")
-        plt.gcf().canvas.set_window_title("Cross-correlation")
         plt.show()
         
         return Rxy_list
@@ -250,6 +250,7 @@ class Analysis(Model, Data):
     def Fourier(self, data, N, L=0):
         Re = list()
         Im = list()
+        const_2pi_N = 2 * pi / N
         
         # set to 0 the last L values
         if L > 0:
@@ -261,8 +262,8 @@ class Analysis(Model, Data):
             Im_n = 0
             for k in range(N):
                 xk = data[k]
-                Re_n += xk * cos(2*pi*n*k/N)
-                Im_n += xk * sin(2*pi*n*k/N)
+                Re_n += xk * cos(const_2pi_N*n*k)
+                Im_n += xk * sin(const_2pi_N*n*k)
             Re.append(Re_n / N)
             Im.append(Im_n / N)
                 
@@ -335,3 +336,51 @@ class Analysis(Model, Data):
             plt.show()
         
         return freq
+    
+    
+    
+    def compare_images(self, image1, image2, show=True):
+        difference = np.zeros(image1.shape, dtype=int)
+        for i in range(image1.shape[0]):
+            for j in range(image2.shape[1]):
+                difference[i][j] = int(image1[i][j] - image2[i][j])
+                
+        if show:
+            plt.imshow(difference, cmap='gray')
+            plt.title("Difference")
+            plt.show()
+    
+        return difference
+    
+    
+          
+        
+    def complex_spectrum(self, data, N, L=0, noise=False, next_division=False):
+        Re = list()
+        Im = list()
+        const_2pi_N = 2 * pi / N
+        
+        # set to 0 the last L values
+        if L > 0:
+            for i in range(N-L, N):
+                data[i] = 0
+                
+        for n in range(N):
+            Re_n = 0
+            Im_n = 0
+            for k in range(N):
+                xk = data[k]
+                Re_n += xk * cos(const_2pi_N*n*k)
+                Im_n += xk * sin(const_2pi_N*n*k)
+            Re.append(Re_n / N)
+            Im.append(Im_n / N)
+                
+        # complex spectrum
+        if noise:
+            Xn_complex = [Re[i] + (-Im[i]) for i in range(N)]
+            return Xn_complex
+        elif noise == False and next_division == True:
+            return Re, Im
+        else:
+            Xn_complex = [Re[i] + Im[i] for i in range(N)]
+            return Xn_complex
