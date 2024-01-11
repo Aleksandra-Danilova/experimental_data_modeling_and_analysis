@@ -1089,7 +1089,222 @@ def main():
     
     
     
-   
+    # Changing image size based on 2-D Fourier transform
+    '''
+    path = 'src/grace.jpg'
+    image = Data(N).read_file(path, ext='jpg')[0]
+
+    # example of 1d enlargement
+    enlarged_1d = Processing(N).enlarge_data(data=image[0:8, 0:25], coefficient=1.2)
+    N = len(enlarged_1d) // 2
+    '''
+    '''
+    path = 'src/grace.jpg'
+    image = Data(N).read_file(path, ext='jpg')[0]
+
+    #Processing(N).enlarge_data_2D(data=image, coef=1.4)
+
+    coefficient=1.2
+    complex_spectrum = Analysis(N,N).complex_spectrum(image[0:8, 0:25], len(image[0:8, 0:25]))
+    '''
+    
+
+    
+
+     
+    
+    # Selection of contours by differential operators  
+        
+    path_grace = 'src/grace.jpg'
+    image = Data(N).read_file(path_grace, ext='jpg')[0]
+    sobel_image = Processing(N).sobel_operator(image)
+    #prewitt_image = Processing(N).prewitt_operator(image)
+    
+    M = 1
+    R_imp = 255
+    R_rnd = 30
+    both = np.array(Model(N).noise_image(image, noise_type='both', M=M, R_imp=R_imp, R_rnd=R_rnd)) 
+    
+    #sobel_image = Processing(N).sobel_operator(both, 0, 0.15)
+    #sobel_image = Processing(N).sobel_operator(both, 1, 0.15)
+    #prewitt_image = Processing(N).prewitt_operator(both, 0, 0.15) 
+    #prewitt_image = Processing(N).prewitt_operator(both, 1, 0.15)
+    
+    '''
+    mean = Processing(N).suppress_noise(both, filter_size=11, filter_type='mean')
+    sobel_image = Processing(N).sobel_operator(mean, 0.3)
+    #sobel_image = Processing(N).sobel_operator(mean, 1, 0.25)
+    #prewitt_image = Processing(N).prewitt_operator(mean, 0, 0.25)
+    #prewitt_image = Processing(N).prewitt_operator(mean, 1, 0.25)
+    '''
+    
+    #median = Processing(N).suppress_noise(both, filter_size=11, filter_type='median')
+    #sobel_image = Processing(N).sobel_operator(median, 0.1)
+    
+    #sobel_image = Processing(N).sobel_operator(median, 1, 0.05)
+    #prewitt_image = Processing(N).prewitt_operator(median, 0, 0.01)
+    #prewitt_image = Processing(N).prewitt_operator(median, 1, 0.01)
+    
+    
+    '''
+    path_model = 'src/MODELimage.jpg'
+    image = Data(N).read_file(path_model, ext='jpg')[0]
+    image = Data(N).recalculate_to_grayscale(image, write=False, show=True)
+    #sobel_image = Processing(N).sobel_operator(image, 0.2)
+    #prewitt_image = Processing(N).prewitt_operator(image, 0.2)
+ 
+    
+    M = 2
+    R_imp = 255
+    R_rnd = 30
+    both = np.array(Model(N).noise_image(image, noise_type='both', M=M, R_imp=R_imp, R_rnd=R_rnd))
+    #sobel_image = Processing(N).sobel_operator(both, 0.1) 
+    '''
+    '''
+    sobel_image = Processing(N).sobel_operator(both, 0, 0.1)
+    sobel_image = Processing(N).sobel_operator(both, 1, 0.1) 
+    prewitt_image = Processing(N).prewitt_operator(both, 0, 0.1) 
+    prewitt_image = Processing(N).prewitt_operator(both, 1, 0.1) 
+    
+    
+    '''
+    #mean = Processing(N).suppress_noise(both, filter_size=11, filter_type='mean')
+    '''
+    sobel_image = Processing(N).sobel_operator(mean, 0, 0.1)
+    sobel_image = Processing(N).sobel_operator(mean, 1, 0.1) 
+    prewitt_image = Processing(N).prewitt_operator(mean, 0, 0.1) 
+    prewitt_image = Processing(N).prewitt_operator(mean, 1, 0.1) 
+    '''
+    
+    '''
+    median = Processing(N).suppress_noise(both, filter_size=11, filter_type='median')
+    #sobel_image = Processing(N).sobel_operator(both, 0.1)
+    #prewitt_image = Processing(N).prewitt_operator(median, 0, 0.05)
+    #prewitt_image = Processing(N).prewitt_operator(median, 1, 0.05)
+
+    '''
+
+
+    
+
+    # Erosion and dilation
+    #path_model = 'src/MODELimage.jpg'
+    #image = Data(N).read_file(path_model, ext='jpg')[0]
+    #image = Data(N).recalculate_to_grayscale(image, write=False, show=True)
+    
+    #binary_image = Processing(N).binarize_image(image, 0.75)
+    #plt.imshow(binary_image, cmap='gray')
+    #plt.title('Binary Image')
+    #plt.show()
+    
+
+    
+    #M = 2
+    #R_imp = 255
+    #R_rnd = 30
+  
+    #Processing(N).dilation(binary_image, (3, 3))
+    #Processing(N).dilation(binary_image, (5, 5))
+    #Processing(N).erosion(binary_image, (3, 3))
+    #Processing(N).erosion(binary_image, (5, 5))
+    
+    #both = np.array(Model(N).noise_image(image, noise_type='both', M=M, R_imp=R_imp, R_rnd=R_rnd)) 
+    
+    #binary_image = Processing(N).binarize_image(both, 0.4)
+    
+    #plt.imshow(binary_image, cmap='gray')
+    #plt.title('Binary Image')
+    #plt.show()
+    #Processing(N).dilation(binary_image, (3,3))
+    #Processing(N).dilation(binary_image, (5,5))
+    #Processing(N).erosion(binary_image, (3,3))
+    #Processing(N).erosion(binary_image, (5,5))
+    
+    
+    '''
+    mean = Processing(N).suppress_noise(both, filter_size=7, filter_type='mean')
+    binary_image = Processing(N).binarize_image(mean, 0.75)
+    plt.imshow(binary_image, cmap='gray')
+    plt.title('Binary Image')
+    plt.show()
+    Processing(N).dilation(binary_image, (3,3))
+    Processing(N).dilation(binary_image, (5,5))
+    Processing(N).erosion(binary_image, (3,3))
+    Processing(N).erosion(binary_image, (5,5))
+    
+    
+    median = Processing(N).suppress_noise(both, filter_size=11, filter_type='median')
+    binary_image = Processing(N).binarize_image(median, 0.75)
+    plt.imshow(binary_image, cmap='gray')
+    plt.title('Binary Image')
+    plt.show()
+    Processing(N).dilation(binary_image, (3,3))
+    Processing(N).dilation(binary_image, (5,5))
+    Processing(N).erosion(binary_image, (3,3))
+    Processing(N).erosion(binary_image, (5,5))
+    '''
+    
+    
+    #path_model = 'src/grace.jpg'
+    #image = Data(N).read_file(path_model, ext='jpg')[0]
+    
+    #binary_image = Processing(N).binarize_image(image, 0.5)
+    #plt.imshow(binary_image, cmap='gray')
+    #plt.title('Binary Image')
+    #plt.show()
+    
+    #Processing(N).erosion(binary_image, (3, 3))
+    #Processing(N).erosion(binary_image, (5, 5))
+    
+    
+    #Processing(N).dilation(binary_image, (3, 3))
+    #Processing(N).dilation(binary_image, (5, 5))
+
+    
+    '''
+    M = 2
+    R_imp = 255
+    R_rnd = 30
+    
+    both = np.array(Model(N).noise_image(image, noise_type='both', M=M, R_imp=R_imp, R_rnd=R_rnd)) 
+    
+    
+    binary_image = Processing(N).binarize_image(both, 0.25)
+    plt.imshow(binary_image, cmap='gray')
+    plt.title('Binary Image')
+    plt.show()
+
+    Processing(N).dilation(binary_image, (3, 3))
+    Processing(N).dilation(binary_image, (5, 5))
+    
+    Processing(N).erosion(binary_image, (3, 3))
+    Processing(N).erosion(binary_image, (5, 5))
+    '''
+    
+    '''
+    mean = Processing(N).suppress_noise(both, filter_size=11, filter_type='mean')
+    binary_image = Processing(N).binarize_image(mean, 0.4)
+    plt.imshow(binary_image, cmap='gray')
+    plt.title('Binary Image')
+    plt.show()
+    Processing(N).dilation(binary_image, (3, 3))
+    Processing(N).dilation(binary_image, (5, 5))
+    Processing(N).erosion(binary_image, (3, 3))
+    Processing(N).erosion(binary_image, (5, 5))
+    
+    
+    median = Processing(N).suppress_noise(both, filter_size=11, filter_type='median')
+    binary_image = Processing(N).binarize_image(median, 0.4)
+    plt.imshow(binary_image, cmap='gray')
+    plt.title('Binary Image')
+    plt.show()
+    Processing(N).dilation(binary_image, (3, 3))
+    Processing(N).dilation(binary_image, (5, 5))
+    Processing(N).erosion(binary_image, (3, 3))
+    Processing(N).erosion(binary_image, (5, 5))
+    '''
+    
+    
     
 if __name__ == "__main__":
    main()

@@ -599,4 +599,150 @@ class Processing(Analysis):
         else:
             Xn_complex = [Re[i] + Im[i] for i in range(N)]
             return Xn_complex
+                
+    
+    
+    def binarize_image(self, image, threshold_percantage):
+        threshold_value = threshold_percantage * np.max(image)
+        image[image < threshold_value] = 0
+        image[image >= threshold_value] = 255
         
+        return image
+    
+    
+    '''
+        Edge detection by differential operators:
+        gradient (Prewitt and Sobel).
+        Precise calculation: G = (G_x^2 + G_y^2)^(1/2)
+    '''
+    def __egde_detection(self, image, masks, mask_type):
+        if mask_type == 0:
+            operator_x = masks[0]
+            operator_y = masks[1]    
+        elif mask_type == 1:
+            operator_x = masks[2]
+            operator_y = masks[3]
+            
+        G = np.array(image)
+        
+        for i in range(1, image.shape[0] - 1):
+            for j in range(1, image.shape[1] - 1):
+                G_x = np.sum(image[i - 1 : i + 2, j - 1 : j + 2] * operator_x)
+                G_y = np.sum(image[i - 1 : i + 2, j - 1 : j + 2] * operator_y)
+                G[i, j] = np.sqrt(G_x**2 + G_y**2)
+        return G
+        
+
+    def sobel_operator(self, img, threshold=0.5):
+        new_image = np.copy(img)
+        size = img.shape
+        for i in range(1, size[0] - 1):
+            for j in range(1, size[1] - 1):
+                G_x = (img[i - 1][j - 1] + 2*img[i][j - 1] + img[i + 1][j - 1]) - (img[i - 1][j + 1] + 2*img[i][j + 1] + img[i + 1][j + 1])
+                G_y = (img[i - 1][j - 1] + 2*img[i - 1][j] + img[i - 1][j + 1]) - (img[i + 1][j - 1] + 2*img[i + 1][j] + img[i + 1][j + 1])
+                new_image[i][j] = np.sqrt(G_x**2 + G_y**2)
+       
+
+        plt.imshow(new_image, cmap='gray')
+        plt.title("Sobel Operator")
+        plt.show()
+
+            
+        binary_image = Processing(100).binarize_image(new_image, threshold)
+        plt.imshow(binary_image, cmap='gray')
+        plt.title('Edges after Sobel operator')
+        plt.show()
+        
+        return new_image
+    
+   
+    
+    
+    def prewitt_operator(self, image, mask_type=0, threshold=0.6, show=True):
+        prewitt_masks = [
+            [[-1, -1, -1], [0, 0, 0], [1, 1, 1]], # applied to image's X axis
+            [[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], # applied to image's Y axis
+            [[0, 1, 1], [-1, 0, 1], [-1, -1, 0]], # applied to image's X axis
+            [[-1, -1, 0], [-1, 0, 1], [0, 1, 1]]] # applied to image's Y axis
+
+        G = self.__egde_detection(image, prewitt_masks, mask_type)
+                
+        if show:        
+            plt.imshow(G, cmap='gray')
+            plt.title("Prewitt Operator")
+            plt.show()
+            
+            binary_image = Processing(100).binarize_image(G, threshold)
+            plt.imshow(binary_image, cmap='gray')
+            plt.title('Edges after Prewitt operator')
+            plt.show()
+        
+        return binary_image
+    
+    def apply_filter(self, img, f):
+        img_h, img_w = img.shape
+        ret = np.array(img, dtype='float')
+        img = np.array(img, dtype='float')
+        f_h, f_w = f.shape
+        assert f_h % 2 == 1, 'assume filter size is odd'
+        f_size = np.int((f_h - 1) / 2)
+
+        for i in range(img_h):
+            for j in range(img_w):
+                if (i - f_size < 0 or j - f_size < 0 
+                    or i + f_size >= img_h or j + f_size >= img_w):
+                    ret[i][j] = 0
+                    continue
+                v = 0
+                for di in range(-f_size, f_size + 1):
+                    for dj in range(-f_size, f_size + 1):
+                        ci = i + di
+                        cj = j + dj
+                        fi = di + f_size
+                        fj = dj + f_size
+                        v = v + f[fi, fj] * img[ci, cj]
+                ret[i][j] = v
+
+        return ret
+
+
+        
+    
+    
+    def erosion(self, image, shape):
+        image_1 = np.array(image)
+        image_2 = np.array(image)
+        
+        mx = shape[0] // 2
+        my = shape[1] // 2
+        
+        kernel = np.ones((shape[0], shape[1])) * 255
+        
+        for i in range(mx, image.shape[0] - mx):
+            for j in range(my, image.shape[1] - my):
+                tt = image_1[i - mx : i + mx + 1, j - my : j + my + 1] * kernel
+                if np.min(tt) == 0:
+                    image_2[i - mx : i + mx + 1, j - my : j + my + 1] = 0
+        plt.imshow(image_2, cmap='gray')
+        plt.title('Erosion (mask size = ' + str(shape[0]) + ')')
+        plt.show()            
+        return image_2
+    
+    
+    def dilation(self, image, shape):
+        image_1 = np.array(image)
+        image_2 = np.array(image)
+        
+        mx = shape[0] // 2
+        my = shape[1] // 2
+        
+        kernel = np.ones((shape[0], shape[1])) * 255
+        for i in range(mx, image.shape[0] - mx):
+            for j in range(my, image.shape[1] - my):
+                tt = image_1[i - mx : i + mx + 1, j - my : j + my + 1] * kernel
+                if np.sum(tt) > 0:
+                    image_2[i - mx : i + mx + 1, j - my : j + my + 1] = 255
+        plt.imshow(image_2, cmap='gray')
+        plt.title('Dilation (mask size = ' + str(shape[0]) + ')')
+        plt.show()            
+        return image_2
