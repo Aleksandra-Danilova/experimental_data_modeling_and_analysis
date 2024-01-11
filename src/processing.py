@@ -189,7 +189,7 @@ class Processing(Analysis):
             plt.plot(time, lpw_result)
             plt.title("Potter Low Pass Filter Inverse Fourier Transform (LPF weights)")
             plt.xlabel("t")
-            plt.gcf().canvas.set_window_title("Potter Low Pass Filter Inverse Fourier Transform (LPF weights)")
+            #plt.gcf().canvas.set_window_title("Potter Low Pass Filter Inverse Fourier Transform (LPF weights)")
             plt.show()
         return lpw_result
     
@@ -211,7 +211,7 @@ class Processing(Analysis):
             plt.plot(hpw)
             plt.title("High Pass Filter weights")
             plt.xlabel("t")
-            plt.gcf().canvas.set_window_title("High Pass Filter weights")
+            #plt.gcf().canvas.set_window_title("High Pass Filter weights")
             plt.show()
             
         return hpw
@@ -232,7 +232,7 @@ class Processing(Analysis):
             plt.plot(bpw)
             plt.title("Band Pass Filter weights")
             plt.xlabel("t")
-            plt.gcf().canvas.set_window_title("Band Pass Filter weights")
+            #plt.gcf().canvas.set_window_title("Band Pass Filter weights")
             plt.show()
             
         return bpw
@@ -257,7 +257,7 @@ class Processing(Analysis):
             plt.plot(bsw)
             plt.title("Band Stop Filter weights")
             plt.xlabel("t")
-            plt.gcf().canvas.set_window_title("Band Stop Filter weights")
+            #plt.gcf().canvas.set_window_title("Band Stop Filter weights")
             plt.show()
             
         return bsw
@@ -537,3 +537,66 @@ class Processing(Analysis):
             plt.title(f"Arithmetic Mean Filter, size={filter_size}")
             plt.show()
             return filtered
+            
+            
+    
+    def inverse_filter(self, data1, data2, N=1000, M=200, alpha=0):    
+        X_hat = list()
+        alpha_sqr = alpha**2
+
+        # Use formulas for complex numbers division:
+        # Re[Xk_hat] = (Re[Yk] * Re[Hk] + Im[Yk] * Im[Hk]) / (Re[Hk]^2 + Im[Hk]^2), and
+        # Im[Xk_hat] = (Im[Yk] * Re[Hk] - Re[Yk] * Im[Hk]) / (Re[Hk]^2 + Im[Hk]^2).
+        Re = [(data1[0][i] * data2[0][i] + data1[1][i] * data2[1][i]) / (data2[0][i]**2 + data2[1][i]**2 + alpha_sqr) for i in range(N)]
+        Im = [(data1[1][i] * data2[0][i] - data1[0][i] * data2[1][i]) / (data2[0][i]**2 + data2[1][i]**2 + alpha_sqr) for i in range(N)]
+
+        X_hat = [Re[i] + Im[i] for i in range(N)]        
+        inverse_fourier = Analysis(N, M).inverse_Fourier(X_hat, len(X_hat), include_complex=False, show=False)
+        return inverse_fourier
+            
+        
+    
+    def enlarge_data(self, data, coefficient):
+        N = len(data)
+        Xn = Analysis(N, N).Fourier(data, N)
+        tail = int(N * (coefficient / 2) - N // 2)
+        zeros = [0] * tail
+        fourier_with_zeroes = Xn + zeros
+        
+        plt.plot(fourier_with_zeroes)
+        plt.show()
+        
+        full_spectrum = fourier_with_zeroes[::-1] + fourier_with_zeroes
+        return full_spectrum
+    
+    
+    def complex_spectrum(self, data, N, L=0, noise=False, next_division=False):
+        Re = list()
+        Im = list()
+        const_2pi_N = 2 * pi / N
+        
+        # set to 0 the last L values
+        if L > 0:
+            for i in range(N-L, N):
+                data[i] = 0
+                
+        for n in range(N):
+            Re_n = 0
+            Im_n = 0
+            for k in range(N):
+                xk = data[k]
+                Re_n += xk * cos(const_2pi_N*n*k)
+                Im_n += xk * sin(const_2pi_N*n*k)
+            Re.append(Re_n / N)
+            Im.append(Im_n / N)
+                
+        # complex spectrum
+        if noise:
+            Xn_complex = [Re[i] + (-Im[i]) for i in range(N)]
+            return Xn_complex
+        elif noise == False and next_division == True:
+            return Re, Im
+        else:
+            Xn_complex = [Re[i] + Im[i] for i in range(N)]
+            return Xn_complex
+        

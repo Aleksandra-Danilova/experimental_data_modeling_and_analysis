@@ -87,10 +87,10 @@ class Model(Data):
         plt.title(f"{type}")
         plt.xlabel("t")
         plt.ylabel("x(t)")
-        if type == "Noise":
-            plt.gcf().canvas.set_window_title("Noise")
-        elif type == "Customer Noise":
-            plt.gcf().canvas.set_window_title("Customer Noise")
+        #if type == "Noise":
+        #    plt.gcf().canvas.set_window_title("Noise")
+        #elif type == "Customer Noise":
+        #    plt.gcf().canvas.set_window_title("Customer Noise")
         plt.show()
         
         

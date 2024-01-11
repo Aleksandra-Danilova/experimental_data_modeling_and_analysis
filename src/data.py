@@ -16,7 +16,7 @@ class Data:
         
     
     # Read data from file
-    def read_file(self, path, dt=0.002, ext='dat', start=0, end=-1, shape=(1024, 1024), show=True):
+    def read_file(self, path, dt=0.002, ext='dat', start=0, end=-1, shape=(1024, 1024), show=True, rot=False):
         if ext == 'dat':
             with open(path, 'rb') as file:
                 # convert bytes to floats
@@ -48,10 +48,10 @@ class Data:
         
         elif ext == 'xcr':
             with open(path, "rb") as f:
-                # header of 2048 bytes is a text, ignore tail of 8192 bytes
-                bytes = bytearray(f.read())#[2048:-8192]
+                # header of start bytes may be a text, ignore tail of end bytes
+                bytes = bytearray(f.read())[start:end]
                 
-                # After the header, two-byte image data comes
+                # after the header, two-byte image data comes
                 data_to_hex = bytes.hex()
                 
                 data_to_hex_list = list()
@@ -64,7 +64,9 @@ class Data:
                 for i in range(len(data_to_hex_list)):
                     data_int.append(int(data_to_hex_list[i], 16))
                              
-                reshaped = np.reshape(data_int, shape)# np.rot90(np.reshape(data_int, shape))
+                reshaped = np.reshape(data_int, shape)
+                if rot == True:
+                    reshaped = np.rot90(reshaped)
                 recalculate = self.recalculate_to_grayscale(reshaped, write=False, show=True)
             return recalculate
 

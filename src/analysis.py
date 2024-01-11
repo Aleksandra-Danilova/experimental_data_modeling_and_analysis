@@ -13,7 +13,8 @@ class Analysis(Model, Data):
         super(Model, self).__init__(N)
         self.M = M
           
-           
+    # statistics:
+    # min, max, mean, dispersion, std, asymmetry, excess, mean sqr, rmse       
     def __get_min(self, data):
         return min(data)
     
@@ -384,3 +385,120 @@ class Analysis(Model, Data):
         else:
             Xn_complex = [Re[i] + Im[i] for i in range(N)]
             return Xn_complex
+        
+        
+    
+        
+    def inverse_Fourier(self, data, N, show=True, include_complex=True):
+        Xn_complex = data
+        const_2pi_N = 2 * pi / N
+        
+        if include_complex:
+            Xn_complex = self.complex_spectrum(data, N)
+                
+        # inverse 1D
+        re = list()
+        im = list()
+        for n in range(N):
+            re_n = 0
+            im_n = 0
+            for k in range(N):
+                xk = Xn_complex[k]
+                re_n += xk * cos(const_2pi_N*n*k)
+                im_n += xk * sin(const_2pi_N*n*k)
+            re.append(re_n)
+            im.append(im_n)
+                    
+        Xn = [(re[k] + im[k]) / N for k in range(N)]
+            
+        if show:
+            plt.clf()
+            plt.plot(Xn)            
+            plt.title('1D Inverse Fourier Transform')
+            plt.show()
+        
+        return Xn
+    
+    
+    # change places of quaters of the spectrum
+    def __rearrange(self, data):
+        rows_centre = len(data) // 2
+        columns_centre = len(data[0]) // 2
+       
+        for r in range(rows_centre):
+            for c in range(columns_centre):
+                data[r][c], data[r + rows_centre][c + columns_centre] = data[r + rows_centre][c + columns_centre], data[r][c]
+                data[r + rows_centre][c], data[r][c + columns_centre] = data[r][c + columns_centre], data[r + rows_centre][c]
+        
+        return data
+    
+    
+    def Fourier2D(self, data):
+        # amplitude spectrum for rows of array
+        Xn_rows = list()
+        N1 = data.shape[0]
+        N2 = data.shape[1]
+        for i in range(N1):
+            Xn_rows.append(self.Fourier(data[i], N2))
+            
+        # apply 1D Fourier transform for each column of rowwise complex spectrum
+        columns = list()
+        for c in range(N2):
+            columns.append([row[c] for row in Xn_rows])
+    
+        col_len = len(columns[0])
+        Xn_columns = list()
+        for i in range(len(columns)):
+            Xn_columns.append(self.Fourier(columns[i], col_len))
+            
+        
+        rows = list()
+        for c in range(len(columns[0])):
+            rows.append([row[c] for row in Xn_columns])
+        plt.imshow(rows, cmap=plt.get_cmap('gray'))
+        plt.title("2D Fourier Transform")
+        plt.show()
+        
+        plt.plot(rows)
+        plt.title("Amplitude Spectrum")
+        plt.show()
+            
+        # rearrange quaters of the matrix     
+        Xn_columns_rearranged = self.__rearrange(rows)       
+        plt.imshow(Xn_columns_rearranged, cmap=plt.get_cmap('gray'))
+        plt.title("2D Fourier Transform (centralized)")
+        plt.show()
+        
+        return Xn_columns_rearranged
+    
+    
+           
+    def inverse_Fourier2D(self, data, show=True):
+        # amplitude spectrum for rows of array
+        Xn_rows = list()
+        N1 = len(data)
+        N2 = len(data[0])
+        for i in range(N1):
+            Xn_rows.append(self.inverse_Fourier(data[i], N2, show=False))
+        
+        # for each column of rowwise complex spectrum apply inverse 1D Fourier transform
+        columns = list()
+        for i in range(N2):
+            columns.append([row[i] for row in Xn_rows])
+        
+        Xn_columns = list() 
+        
+        col_len = len(columns[0])
+        for i in range(len(columns)):
+            Xn_columns.append(self.inverse_Fourier(columns[i], col_len, show=False))
+                 
+        rows = list()
+        for c in range(len(columns[0])):
+            rows.append([row[c] for row in Xn_columns])
+            
+        if show:
+            plt.imshow(rows, cmap=plt.get_cmap('gray'))
+            plt.title("Inverse 2D Fourier Transform")
+            plt.show()
+        
+        return rows

@@ -1,3 +1,10 @@
+'''
+    File contains examples of tasks that can be done with data:
+    reading, modelling, processing, and analysis.
+'''
+
+
+from scipy.misc import derivative
 from src.data import Data
 from src.model import Model
 from src.analysis import Analysis
@@ -6,6 +13,8 @@ import numpy as np
 from random import uniform
 from scipy.io import wavfile
 from matplotlib import pyplot as plt
+import cv2
+from scipy.signal import convolve, convolve2d
 
 
 # Additive Models
@@ -193,7 +202,7 @@ def impulse_response(N=1000, dt=0.005):
     plt.title("Impulse Response of the Cardiac Muscle")
     plt.xlabel("t")
     plt.ylabel("h(t)")
-    plt.gcf().canvas.set_window_title("Impulse Response of the Cardiac Muscle")
+    #plt.gcf().canvas.set_window_title("Impulse Response of the Cardiac Muscle")
     plt.show()
     return ht_norm
     
@@ -210,7 +219,7 @@ def rhythm_control(N=1000, dt=0.005):
     plt.title("Rhythm Control Function")
     plt.xlabel("t")
     plt.ylabel("x(t)")
-    plt.gcf().canvas.set_window_title("Rhythm Control Function")
+    #plt.gcf().canvas.set_window_title("Rhythm Control Function")
     plt.show()  
     return xt
     
@@ -231,7 +240,7 @@ def convolution(xt, ht_norm, N=1000, M=200, dt=0.005, plot=True):
         plt.title("Convolution")
         plt.xlabel("t")
         plt.ylabel("yk")
-        plt.gcf().canvas.set_window_title("Convolution")
+        #plt.gcf().canvas.set_window_title("Convolution")
         plt.show()
     return yk
    
@@ -240,7 +249,7 @@ def filters(N=1000, M=10, fc=50, dt=0.002, m=64, fc1=35, fc2=75):
     analysis = Analysis(N, M)
     processing = Processing(N)
     # Filters:
-    # Low Pass Filter (LPF)   
+    # Low Pass Filter (LPF)
     lpf = processing.lpf(fc, dt, m, symmetrical_display=True, plot=True)
     analysis.filter_frequency(lpf, m, filter_type='LP')
     
@@ -300,10 +309,134 @@ def pw(signal_1d, coef1, n1, n2, coef2, n3, n4, N):
             oscillogram.append(0)
     return data2, oscillogram
 
+
+def read_image_from_dat(path, xlen, ylen):
+    dat_file = np.fromfile(path, dtype='float32')
+    dat_file_reshaped = np.reshape(dat_file, (xlen, ylen))
+    plt.imshow(dat_file_reshaped, cmap='gray')
+    plt.title(path)
+    plt.show()
+    return dat_file_reshaped   
+
+
+# Inverse filter for .dat files
+def inverse_filter_for_dat(dat, kernel, alpha=0):
+        N = 1000
+        M = 10
+        new_image = list()
+        H = Analysis(N, M).complex_spectrum(kernel, len(kernel), next_division=True)
+        for i in range(221):  
+            Y = Analysis(N, M).complex_spectrum(dat[i], 307, next_division=True)
+            inverse_filter = Processing(N).inverse_filter(Y, H, N=307, M=200, alpha=alpha)
+            new_image.append(inverse_filter)
+        
+        plt.imshow(new_image, cmap='gray')
+        plt.title('New Image')
+        plt.show()
+        return new_image
+
+
+# Edge detection by frequency filters
+def get_edges(image, threshold, filter='lpf'):
+
+    N = 1000
+    m = 64
+        
+    # 1) binarize image
+    binary_image = Processing(N).binarize_image(image, threshold)
+    plt.imshow(binary_image, cmap='gray')
+    plt.title('Binary Image')
+    plt.show()
+    N = len(binary_image[0])
+        
+    # 2) get image erosion by applying Low Pass Filter (LPF)
+    # to rows and columns
+    if filter == 'lpf':
+        # Frequences reduction with LPF 
+        lpf = Processing(N).lpf(fc=0.1, dt=1, m=m, symmetrical_display=True, plot=True)
+        lpf_rows = list()
+        for row in binary_image:
+            #filter = Analysis(N, M).filter_frequency(lpf, m=64, filter_type='LP', plot=True, plot_spectrum_independently=False, dt=1)
+            conv_lpf = convolve(row, lpf, mode='same')#convolution(row, lpf, N=N, M=2*m+1, dt=1, plot=False)
+            lpf_rows.append(conv_lpf)#[m:-1] + conv_lpf[0:m+1])#conv_lpf[2*m+1:-1])
+        print(len(lpf_rows))
+        print(len(lpf_rows[0]))
+            
+        plt.imshow(lpf_rows, cmap='gray')
+        plt.title('Low Pass Filter Applied to Rows')
+        plt.show()
+            
+        M = len(lpf_rows[0])
+            
+        erosion = list()
+        lpf_np = np.array(lpf_rows)
+
+        for i in range(N): 
+            conv_lpf = convolve(lpf_np[:, i], lpf,mode='same')#convolution(lpf_np[:, i], lpf, N=M, M=2*m+1, dt=1, plot=False)
+            erosion.append(conv_lpf)#[2*m+1:-1]#conv_lpf[m:-1] + conv_lpf[0:m+1])
+                
+        erosion_rotated = np.flip(np.rot90(erosion, k=-1), axis=1)
+        plt.imshow(erosion_rotated, cmap='gray')
+        plt.title('Erosion')
+        plt.show()
+            
+        # 3) binarize erosion
+        erosion_binary = Processing(N).binarize_image(erosion_rotated, threshold)
+        plt.imshow(erosion_binary, cmap='gray')
+        plt.title('Binary image')
+        plt.show()
+        
+        
+        # 4) subtract binarized erosion from original binarized image
+        image_with_edges = list()
+        for item1, item2 in zip(binary_image, erosion_binary):
+            image_with_edges.append(item1 - item2)
+            
+        plt.imshow(image_with_edges, cmap='gray', vmin=0, vmax=255)
+        plt.title('Edges')
+        plt.show()
+        
+    elif filter == 'hpf':
+        # Frequences reduction with HPF
+        hpf = Processing(N).hpf(fc=0.1, dt=1, m=m, plot=True)
     
+        hpf_rows = list()
+        for row in binary_image:
+            #filter = Analysis(N, N).filter_frequency(hpf, m=64, filter_type='HP', plot=True, plot_spectrum_independently=False, dt=1)
+            conv_hpf = convolve(row, hpf, mode='same')#convolution(row, hpf, N=N, M=2*m+1, dt=1, plot=False)
+            hpf_rows.append(conv_hpf)#[m:-1] + conv_hpf[0:m+1])#conv_hpf[2*m+1:-1])
+            
+        plt.imshow(hpf_rows, cmap='gray')
+        plt.title('High Pass Filter Applied to Rows')
+        plt.show()
+            
+        M = len(hpf_rows[0])
+            
+        erosion = list()
+        hpf_np = np.array(hpf_rows)
+
+        for i in range(N): 
+            conv_hpf = convolve(hpf_np[:, i], hpf, mode='same')#convolution(hpf_np[:, i], hpf, N=M, M=2*m+1, dt=1, plot=False)
+            erosion.append(conv_hpf)#[2*m+1:-1]#conv_hpf[m:-1] + conv_hpf[0:m+1])
+        
+        erosion_rotated = np.flip(np.rot90(erosion, k=-1), axis=1)
+        plt.imshow(erosion_rotated, cmap='gray')
+        plt.title('Erosion')
+        plt.show()
+            
+        # 3) binarize erosion
+        erosion_binary = Processing(N).binarize_image(erosion_rotated, 0.3)
+        plt.imshow(erosion_binary, cmap='gray')
+        plt.title('Edges')
+        plt.show()
+
+
+
 
 
 def main():
+    # initialize variables
+    
     N = 1000
     #data = Data(N).t
     
@@ -319,7 +452,7 @@ def main():
     #dataX = model.customer_noise(N, R, plot_graphs=False)
     #dataX = model.noise(N, R, plot_graphs=False)
     #data = model.trend(a, b, alpha, plot_graphs=False)[0]
-    data_noise = model.noise(N, R, plot_graphs=False)
+    #data_noise = model.noise(N, R, plot_graphs=False)
     #dataX = model.noise(N, R, plot_graphs=False)
     #data = model.customer_noise(N, R, plot_graphs=False)
     
@@ -348,9 +481,9 @@ def main():
     Ai = [A0, A1, A2]
     fi = [f0, f1, f2]
     
-    data_harm = model.harmonic(N, A0, f0, delta_t, plot_graphs=False)
+    #data_harm = model.harmonic(N, A0, f0, delta_t, plot_graphs=False)
     #dataX = model.harmonic(N, A2, f2, delta_t, plot_graphs=False)
-    data_polyharm = model.polyHarm(N, Ai, fi, delta_t, plot_graph=False)
+    #data_polyharm = model.polyHarm(N, Ai, fi, delta_t, plot_graph=False)
 
     #analysis.histogram(data, N, M)
     
@@ -377,10 +510,9 @@ def main():
     remove_trends(additive_model_12, additive_model_34, N=1000)
     '''
     
-    
+    '''
     # Analysis of Fourier spectrum for harmonic and polyharmonic processes
     fourier_spectr_harm_polyharm(Ai, fi, A0=100, f0=33, N=1000, M=10, delta_t=0.001)
-    
     get_fourier_spectr_examples(N=1000, M=10, a=1, b=10, alpha=0.0095, 
                                 R=100, A0=100, f0=33, delta_t=0.001)
       
@@ -389,7 +521,7 @@ def main():
     get_fourier_amplitude_spectrum_harm_polyharm(Ai, fi, A0=100, f0=33, 
                                                  L_list=[24, 124, 224],
                                                  N=1024, M=10, delta_t = 0.001)
-    
+    S
     R = 30
     N = 1000
     M = [1, 10, 100]
@@ -452,8 +584,512 @@ def main():
     Xn_dat = analysis.Fourier(conv_bsf, len(conv_bsf))
     fourier_dat = analysis.spectrFourier(Xn_dat, len(conv_bsf), conv_bsf, L=0, dt=0.002, plot_graphs=False)
     draw_plots_for_freq_filter_reduction(spectrum, filter, conv_bsf, fourier_dat, N=1000, dt=0.002)
+    '''
+    
+    
+    # Shift image pixel values by constant
+    # with following recalculation to grayscale
+    '''
+    try:
+        path = 'src/grace.jpg'
+        image = Data(N).read_file(path, ext='jpg')
+         
+        
+        shift_2d = Model(N).shift_2D(image, C=30,
+                                     new_filename='src/shifted_2d.jpg',
+                                     write=True, show=True)
+        
+        multModel_2d = Model(N).multModel_2D(image, C=1.3,
+                                             new_filename='src/multiplied_2d.jpg',
+                                             write=True, show=True) 
+        
+    except:
+        print('Error')
+    
+    recalculate_to_grayscale = Data(N).recalculate_to_grayscale(shift_2d,
+                                                    new_filename='src/shifted_recalc.jpg',
+                                                    write=True, show=True)
+    
+    recalculate_to_grayscale_mult = Data(N).recalculate_to_grayscale(multModel_2d,
+                                                    new_filename='src/multiplied_recalc.jpg',
+                                                    write=True, show=True)
+    '''
+    
+    
+    
+    # Read .xcr file with ribs xray, where header of 2048 bytes is a text, ignore tail of 8192 bytes
+    '''
+    path = 'src/c12-85v.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(1024, 1024), start=2048, end=-8192, rot=True)
+    #print(len(image))
+    
+    plt.imshow(image, cmap='gray')
+    plt.title("xcr")
+    plt.show()
+    
+    cv2.imwrite('src/xcr_recalc.jpg', image)
+    image_jpg = cv2.imread('src/xcr_recalc.jpg', cv2.IMREAD_GRAYSCALE)
+    #img = Data(N).write_to_xcr(image, 'src/xcr_recalc.bin')
+    image_jpg.tofile('src/to_file.bin')
+    
+    
+    #img = cv2.imread('src/to_file.bin', cv2.IMREAD_GRAYSCALE)
+    #plt.imshow(img, cmap='gray')
+    #plt.title("bin")
+    #plt.show()
+    '''
+    
+    
+    
+    #Resize images with scaling factors greater and less than 1
+    #and with the nearest neighbour method / bilinear interpolation
+    '''
+    # Resize image grace 
+    path = 'src/grace.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    
+    resized_large = Data(N).resize_image(image[0], scale_factor=1.3)
+    plt.imshow(resized_large, cmap='gray')
+    plt.title("resized, scale_factor=1.3")
+    plt.show()
+    
+    resized_small = Data(N).resize_image(image[0], scale_factor=0.7)
+    plt.imshow(resized_small, cmap='gray')
+    plt.title("resized, scale_factor=0.7")
+    plt.show()
+    
+    resized_large_bilinear = Data(N).resize_image(image[0], scale_factor=1.3, method='bilinear')
+    plt.imshow(resized_large_bilinear, cmap='gray')
+    plt.title("resized, scale_factor=1.3")
+    plt.show()
+    
+    resized_small_bilinear = Data(N).resize_image(image[0], scale_factor=0.7, method='bilinear')
+    plt.imshow(resized_small_bilinear, cmap='gray')
+    plt.title("resized, scale_factor=0.7")
+    plt.show()
+    
+    
+    # Resize ribs
+    path = 'src/c12-85v.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(1024, 1024), start=2048, end=-8192, rot=True)
+
+    plt.imshow(image, cmap='gray')
+    plt.title("xcr")
+    plt.show()
+    
+    resized_small = Data(N).resize_image(image, scale_factor=0.6)
+    plt.imshow(resized_small, cmap='gray')
+    plt.title("resized, scale_factor=0.6")
+    plt.show()
+    
+    resized_small_bi = Data(N).resize_image(image, scale_factor=0.6, method='bilinear')
+    plt.imshow(resized_small_bi, cmap='gray')
+    plt.title("resized, scale_factor=0.6")
+    plt.show()
+    
+    
+    # Resize chest xray
+    path = 'src/u0_2048x2500.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(2500, 2048), start=2048, end=-8192, rot=True)
+    
+    plt.imshow(image, cmap='gray')
+    plt.title("xcr")
+    plt.show()
+    
+    resized_small = Data(N).resize_image(image, scale_factor=0.6)
+    
+    plt.imshow(resized_small, cmap='gray')
+    plt.title("resized, scale_factor=0.6")
+    plt.show()
+    
+    resized_small_bil = Data(N).resize_image(image, scale_factor=0.6, method='bilinear')
+    plt.imshow(resized_small_bil, cmap='gray')
+    plt.title("resized, scale_factor=0.6")
+    plt.show()
+    '''
+
+    
+    
+    # Get negative images
+    '''
+    # Negative grace image
+    path = 'src/grace.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    negative_grace = Processing(N).get_negative(image[0])
+    plt.imshow(negative_grace, cmap='gray')
+    plt.title("Negative")
+    plt.show()
+    
+    # Negative ribs xray
+    path = 'src/c12-85v.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(1024, 1024), start=2048, end=-8192, rot=True)
+    negative_xcr = Processing(N).get_negative(image)
+    plt.imshow(negative_xcr, cmap='gray')
+    plt.title("Negative")
+    plt.show()
+    
+    # Negative chest xray
+    path = 'src/u0_2048x2500.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(2500, 2048), start=2048, end=-8192, rot=True)
+    negative_u0 = Processing(N).get_negative(image)
+    plt.imshow(negative_u0, cmap='gray')
+    plt.title("Negative")
+    plt.show()
+    '''
+    
+    # Get gamma correction
+    '''
+    path = 'src/img1.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    gamma1 = Processing(N).gamma_conversion(image[0], C=10, gamma=0.7)
+    plt.imshow(gamma1, cmap='gray')
+    plt.title("Gamma Correction, C=10, y=0.7")
+    plt.show()
+    
+    path = 'src/img2.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    gamma2 = Processing(N).gamma_conversion(image[0], C=10, gamma=0.6)
+    plt.imshow(gamma2, cmap='gray')
+    plt.title("Gamma Correction, C=10, y=0.6")
+    plt.show()
+    
+    path = 'src/img3.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    gamma3 = Processing(N).gamma_conversion(image[0], C=1, gamma=0.7)
+    plt.imshow(gamma3, cmap='gray')
+    plt.title("Gamma Correction, C=1, y=0.7")
+    plt.show()
+    
+    path = 'src/img4.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    gamma4 = Processing(N).gamma_conversion(image[0], C=10, gamma=0.5)
+    plt.imshow(gamma4, cmap='gray')
+    plt.title("Gamma Correction, C=10, y=0.5")
+    plt.show()
+    '''
+    
+    # Get logarithmical transformation
+    '''
+    path = 'src/img1.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    log1 = Processing(N).logarithmic_transformation(image[0], C=0.1)
+    plt.imshow(log1, cmap='gray')
+    plt.title("Log transform, C=0.1")
+    plt.show()
+    
+    path = 'src/img2.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    log2 = Processing(N).logarithmic_transformation(image[0], C=0.1)
+    plt.imshow(log2, cmap='gray')
+    plt.title("Log transform, C=0.1")
+    plt.show()
+    
+    path = 'src/img3.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    log3 = Processing(N).logarithmic_transformation(image[0], C=1)
+    plt.imshow(log3, cmap='gray')
+    plt.title("Log transform, C=1")
+    plt.show()
+    
+    path = 'src/img4.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    log4 = Processing(N).logarithmic_transformation(image[0], C=1)
+    plt.imshow(log4, cmap='gray')
+    plt.title("Log transform, C=1")
+    plt.show()
+    '''
+    
+    
+    # Getting histogram equalization
+    '''
+    path = 'src/HollywoodLC.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    # Normalized histogram of source image
+    p = Processing(N).normalized_histogram(image[0])
+    cdf = Processing(N).CDF(image[0], p)
+    eq = Processing(N).histogram_equalization(image[0], cdf)
+    # Normalized histogram after histogram equalization
+    p_eq = Processing(N).normalized_histogram(eq)
+    cdf = Processing(N).CDF(eq, p_eq)
+    
+    path = 'src/img1.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    # Normalized histogram of source image
+    p = Processing(N).normalized_histogram(image[0])
+    cdf = Processing(N).CDF(image[0], p)
+    eq = Processing(N).histogram_equalization(image[0], cdf)
+    # Normalized histogram after histogram equalization
+    p_eq = Processing(N).normalized_histogram(eq)
+    cdf = Processing(N).CDF(eq, p_eq)
+    
+    
+    path = 'src/img2.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    # Normalized histogram of source image
+    p = Processing(N).normalized_histogram(image[0])
+    cdf = Processing(N).CDF(image[0], p)
+    eq = Processing(N).histogram_equalization(image[0], cdf)
+    # Normalized histogram after histogram equalization
+    p_eq = Processing(N).normalized_histogram(eq)
+    cdf = Processing(N).CDF(eq, p_eq)
+
+    
+    path = 'src/img3.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    # Normalized histogram of source image
+    p = Processing(N).normalized_histogram(image[0])
+    cdf = Processing(N).CDF(image[0], p)
+    eq = Processing(N).histogram_equalization(image[0], cdf)
+    # Normalized histogram after histogram equalization
+    p_eq = Processing(N).normalized_histogram(eq)
+    cdf = Processing(N).CDF(eq, p_eq)
+    
+    
+    path = 'src/img4.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    # Normalized histogram of source image
+    p = Processing(N).normalized_histogram(image[0])
+    cdf = Processing(N).CDF(image[0], p)
+    eq = Processing(N).histogram_equalization(image[0], cdf)
+    # Normalized histogram after histogram equalization
+    p_eq = Processing(N).normalized_histogram(eq)
+    cdf = Processing(N).CDF(eq, p_eq)
+    '''
+    
+    
+    # Compare images: orginal and resized one with interpolation
+    '''
+    path = 'src/grace.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    print(image[0].shape)
+    
+    resized_large = Data(N).resize_image(image[0], scale_factor=1.5)#, method='bilinear')
+    print(resized_large.shape)
+    plt.imshow(resized_large, cmap='gray')
+    plt.title("resized, scale_factor=1.5")
+    plt.show()
+    
+    resized_small = Data(N).resize_image(resized_large, scale_factor=1/1.5)#, method='bilinear')
+    print(resized_small.shape)
+    plt.imshow(resized_small, cmap='gray')
+    plt.title("resized, scale_factor=1/1.5")
+    plt.show()
+    
+    difference = Analysis(N, M).compare_images(image[0], resized_small)
+    
+    # Normalized histogram of source image
+    p = Processing(N).normalized_histogram(difference)
+    cdf = Processing(N).CDF(image[0], p)
+    eq = Processing(N).histogram_equalization(difference, cdf)
+    # Normalized histogram after histogram equalization
+    p_eq = Processing(N).normalized_histogram(eq)
+    cdf = Processing(N).CDF(eq, p_eq)
+    
+    negative_grace = Processing(N).get_negative(difference)
+    plt.imshow(negative_grace, cmap='gray')
+    plt.title("Negative")
+    plt.show()
+    '''
+
+   
+    
+    # Detection and suppression of artifacts of anti-scattering grids in X-ray images
+    # uncomment 'processing.detect_artefacts(image)' line to explore detection process
+    '''
+    # Artifacts for ribs xray
+    path = 'src/c12-85v.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(1024, 1024), start=2048, end=-8192, rot=True)#[0:256, 0:256]
+    plt.imshow(image, cmap='gray')
+    plt.title("xcr")
+    plt.show()
+    #processing.detect_artefacts(image)
+    processing.suppress_artifacts(image, fc1=0.25, fc2=0.35, m=32)
+    
+
+    # Artifacts for chest xray
+    path = 'src/u0_2048x2500.xcr'
+    image = Data(N).read_file(path, ext='xcr', shape=(2500, 2048), start=2048, end=-8192, rot=True)[0:256, 0:256]
+    plt.imshow(image, cmap='gray')
+    plt.title("xcr")
+    plt.show()
+    #processing.detect_artefacts(image)
+    processing.suppress_artifacts(image, fc1=0.35, fc2=0.41, m=32)
+    
+    # Derivatives for chest xray image
+    derivative = list()
+    N = len(image[0])
+    for i in range(0, N-1):
+        derivative.append((image[0][i] - image[0][i + 1]))
+    derivative.append(derivative[-1])
+                
+    acf = Analysis(N, M).acf(derivative, N)
+    Xn_acf = Analysis(N, M).Fourier(acf, N)
+    fourier = Analysis(N, M).spectrFourier(Xn_acf, N, acf, dt=1)
+    '''
+    
+    
+    
+    
+    
+    # Modelling of noise: random, salt and pepper, both.
+    # Then noise supression with median and arithmetic mean filters.
+    '''
+    path = 'src/MODELimage.jpg'
+    image = Data(N).read_file(path, ext='jpg')
+    print(np.amin(image[0]))
+    
+    M = 10
+    R_imp = 255
+    R_rnd = 100
+    
+    
+    salt_and_pepper = Model(N).noise_image(image[0], noise_type='salt_pepper', M=M, R_imp=R_imp)
+    random = Model(N).noise_image(image[0], noise_type='random', R_rnd=R_rnd)
+    both = Model(N).noise_image(image[0], noise_type='both', M=M, R_imp=R_imp, R_rnd=R_rnd)
+    
+    #Processing(N).suppress_noise(np.array(salt_and_pepper), filter_size=3, filter_type='median')
+    #Processing(N).suppress_noise(np.array(random), filter_size=3, filter_type='median')
+    #Processing(N).suppress_noise(np.array(both), filter_size=3, filter_type='median')
+    Processing(N).suppress_noise(np.array(salt_and_pepper), filter_size=3, filter_type='mean')
+    Processing(N).suppress_noise(np.array(random), filter_size=3, filter_type='mean')
+    Processing(N).suppress_noise(np.array(both), filter_size=3, filter_type='mean')
+    '''
+    
+    
+    # Inverse Fourier Transform
+    '''
+    # Example of harmonic function restoration with 1D inverse Fourier transform.
+    data_harm = model.harmonic(N=1000, A0=100, f0=33, delta_t=0.001, plot_graphs=False)
+    Xn_harm = Analysis(N, M).Fourier(data_harm, N)
+    fourier_harm = Analysis(N, M).spectrFourier(Xn_harm, N, data_harm, type='harm', dt=0.001)
+    Xn_harm_restored = Analysis(N, M).inverse_Fourier(data_harm, N)
+    
+
+    # Test image with rectangle inside for 2D inverse Fourier transform
+    
+    N = 256
+    rectangle = np.zeros((N, N))#, dtype=int)
+    n = N // 2
+    for i in range(n - 10, n + 10 + 1):
+        for j in range(n - 15, n + 15 + 1):
+            rectangle[i, j] = 255
+    plt.imshow(rectangle, cmap=plt.get_cmap('gray'))
+    plt.title("Original")
+    plt.show()    
+    
+    fourier_2d = Analysis(N, M).Fourier2D(rectangle)
+    log1 = Processing(N).logarithmic_transformation(np.array(fourier_2d), C=10)
+    plt.imshow(log1, cmap='gray')
+    plt.title("Log transform, C=10")
+    plt.show()
+    
+    inverse_fourier_2d = Analysis(N, M).inverse_Fourier2D(rectangle)
+   
+    
+    # Test grace image for 2D inverse Fourier transform
+    path = 'src/grace.jpg'
+    image = Data(N).read_file(path, ext='jpg')[0]
+
+    fourier_2d = Analysis(N, M).Fourier2D(image)
+    
+    log1 = Processing(N).logarithmic_transformation(np.array(fourier_2d), C=10)
+    plt.imshow(log1, cmap='gray')
+    plt.title("Log transform, C=10")
+    plt.show()
+    
+    inverse_fourier_2d = Analysis(N, M).inverse_Fourier2D(image)
+   
+    # Inverse Fourier Transform for cardiogram
+    ht_norm = impulse_response(N, dt=0.005)
+    xt = rhythm_control(N, dt=0.005)
+    y = convolution(xt, ht_norm, N=1000, M=200, dt=0.005)
+    
+    # complex spectrum of cardiogram (Re and Im)
+    Y = Analysis(N, M).complex_spectrum(y, len(y), next_division=True)
+    # complex spectrum of cardiac muscle function (Re and Im)
+    H = Analysis(N, M).complex_spectrum(ht_norm, len(ht_norm), next_division=True)
+    inverse_filter = Processing(N).inverse_filter(Y, H, N=1000, M=200)
+    plt.plot(inverse_filter)
+    plt.title('1D Inverse Fourier Transform')
+    plt.show()
+    
+    alpha = 0.1
+    noise = Model(N).noise(N, R=1, plot_graphs=True)
+    additive_model = Model(N).addModel(y, noise, N, plot=True)
+    Y = Analysis(N, M).complex_spectrum(additive_model, len(additive_model), next_division=True)
+    inverse_filter = Processing(N).inverse_filter(Y, H, N=1000, M=200, alpha=alpha)
+    plt.plot(inverse_filter)
+    plt.title('1D Inverse Fourier Transform')
+    plt.show()
+    inverse_filter = Processing(N).inverse_filter(Y, H, N=1000, M=200, alpha=0.01)
+    plt.plot(inverse_filter)
+    plt.title('1D Inverse Fourier Transform')
+    plt.show()
+    '''
+    
+
+
+    # Restore blurry images with inverse filter
+    '''
+    # Reading data from .dat files
+    kern76D = Data(N).read_file('src/kern76D.dat')
+    # add extra zeros
+    kern76D_xt = [kern76D[1][i] if i < len(kern76D[1]) else 0 for i in range(307)]
+
+    blur307_221D = read_image_from_dat('src/blur307x221D.dat', 221, 307)    
+    blur307_221D_N = read_image_from_dat('src/blur307x221D_N.dat', 221, 307)
+    
+    new_image = inverse_filter_for_dat(blur307_221D, kern76D_xt)
+    new_image_N = inverse_filter_for_dat(blur307_221D_N, kern76D_xt, alpha=0.008)
+    '''
+    
+
+  
+           
+        
+    # Edge detection by frequency filters
+    # Images without noise
+    '''
+    path_model = 'src/MODELimage.jpg'
+    image = Data(N).read_file(path_model, ext='jpg')
+    image = image[0]
+    #image = Data(N).recalculate_to_grayscale(image, write=False, show=True)
+    get_edges(image, 0.75)
+    #get_edges(image, 0.75, 'hpf')
+    '''
+    '''
+    path_grace = 'src/grace.jpg'
+    image = Data(N).read_file(path_grace, ext='jpg')
+    image = image[0]
+    image = Data(N).recalculate_to_grayscale(image, write=False, show=True)
+    get_edges(image, 0.6)
+    #get_edges(image, 0.2, 'hpf')
+    '''
+    '''
+    # Images with noise
+    M = 2
+    R_imp = 50
+    R_rnd = 100
+    
+    both = np.array(Model(N).noise_image(image, noise_type='both', M=M, R_imp=R_imp, R_rnd=R_rnd))
+    #both = Data(N).recalculate_to_grayscale(both, write=False, show=True)
+    #get_edges(both, 0.5)
+    #get_edges(both, 0.75, 'hpf')
+    '''
+    '''
+    mean = Processing(N).suppress_noise(both, filter_size=11, filter_type='mean')
+    #get_edges(mean, 0.5)
+    get_edges(mean, 0.85, 'hpf')
+    '''
+    '''
+    median = Processing(N).suppress_noise(both, filter_size=11, filter_type='median')
+    #get_edges(median, 0.5)
+    get_edges(median, 0.8, 'hpf')
+    '''
+    
     
     
    
+    
 if __name__ == "__main__":
    main()
