@@ -1,5 +1,5 @@
 # Experimental Data Modeling and Analysis
-Project for modeling and analisys of experimental data.
+Project for modeling and analisys of experimental data from Experimental Data Modeling and Analysis Course.
 
 The project is a Python application that allows to model, process, and analyze both 1D and 2D signals. For example, you can simulate noise / cardiogram and other effects, highlight edges and details in images, change
 the stress in speech, etc.
